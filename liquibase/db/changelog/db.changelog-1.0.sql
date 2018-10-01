@@ -18,8 +18,8 @@ insert into city (name, latitude, longitude) values ('Moscow', 55.7522, 37.6156)
 --rollback delete from city where name='Moscow';
 
 --changeset ruslan.merdeev@mail.ru:insert_city_new_york
-insert into city (name, latitude, longitude) values ('New York', 40.7143, -74.0060);
---rollback delete from city where name='New York';
+insert into city (name, latitude, longitude) values ('New-York', 40.7143, -74.0060);
+--rollback delete from city where name='New-York';
 
 --changeset ruslan.merdeev@mail.ru:create_distance
 create table distance (
@@ -35,10 +35,10 @@ insert into distance (from_city, to_city, dist) values ('Togliatty', 'Moscow', 8
 --rollback delete from distance where from_city='Togliatty' && to_city='Moscow';
 
 --changeset ruslan.merdeev@mail.ru:insert_distance_togliatty_new_york
-insert into distance (from_city, to_city, dist) values ('Togliatty', 'New York', 8250);
---rollback delete from distance where from_city='Togliatty' && to_city='New York';
+insert into distance (from_city, to_city, dist) values ('Togliatty', 'New-York', 8250);
+--rollback delete from distance where from_city='Togliatty' && to_city='New-York';
 
 --changeset ruslan.merdeev@mail.ru:insert_distance_moscow_new_york
-insert into distance (from_city, to_city, dist) values ('Moscow', 'New York', 7530);
---rollback delete from distance where from_city='Moscow' && to_city='New York';
+insert into distance (from_city, to_city, dist) values ('Moscow', 'New-York', 7530);
+--rollback delete from distance where from_city='Moscow' && to_city='New-York';
 
