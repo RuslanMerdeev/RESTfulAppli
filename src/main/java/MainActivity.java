@@ -180,7 +180,8 @@ public class MainActivity extends HttpServlet
 
                 // allows only XML files to be uploaded
                 if (!contentType.equalsIgnoreCase("text/xml")) {
-                    continue;
+                    resp.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    return;
                 }
 
                 String uploadFilePath = uploadFolderPath + File.separator + fileName;
@@ -287,6 +288,8 @@ public class MainActivity extends HttpServlet
     private String makeHtml() throws SQLException {
         StringBuilder sb = new StringBuilder();
 
+        HashMap<Integer,String> cities = selectCities();
+
         sb.append("<html>\n" +
                 "\t<head>\n" +
                 "\t\t<meta charset=\"utf-8\" />\n" +
@@ -294,38 +297,55 @@ public class MainActivity extends HttpServlet
                 "\t</head>\n" +
                 "\t<body>\n" +
                 "\t\t<form action=\"\" method=\"post\">\n" +
-                "\t\t\t<p><strong>" + PN_CALCULATION_TYPE + "</strong></p>\n" +
-                "\t\t\t<p><select name=\"" + PN_CALCULATION_TYPE + "\">\n" +
-                "\t\t\t\t<option value=\"" + PV_CROWFLIGHT + "\">" + PV_CROWFLIGHT + "</option>\n" +
-                "\t\t\t\t<option value=\"" + PV_DISTANCE_MATRIX + "\">" + PV_DISTANCE_MATRIX + "</option>\n" +
-                "\t\t\t\t<option value=\"" + PV_ALL + "\">" + PV_ALL + "</option>\n" +
-                "\t\t\t</select></p>\n" +
-                "\t\t\t\n" +
-                "\t\t\t<p><strong>" + PN_FROM_CITY + "</strong></p>\n" +
-                "\t\t\t<p><select name=\"" + PN_FROM_CITY + "\">");
+                "\t\t\t<fieldset>\n" +
+                "\t\t\t\t<legend><strong>Available Cities</strong></legend>\n" +
+                "\t\t\t\t<p><input list=\"cities\"/>\n" +
+                "\t\t\t\t<datalist id=\"cities\"/>\n");
 
-        ArrayList<String> cities = selectCities();
-        for (String city : cities) {
-            sb.append("\t\t\t\t<option value=\"" + city + "\">" + city + "</option>");
+        for (Map.Entry<Integer,String> city : cities.entrySet()) {
+            sb.append("\t\t\t\t\t<option value=\"").append(city.getValue()).append("\">").append(city.getKey()).append("</option>\n");
         }
 
-        sb.append("\t\t\t</select></p>\n" +
+        sb.append("\t\t\t\t</datalist></p>\n" +
+                "\t\t\t</fieldset>\n" +
+                "\t\t</form>\n" +
                 "\t\t\t\n" +
-                "\t\t\t<p><strong>" + PN_TO_CITY + "</strong></p>\n" +
-                "\t\t\t<p><select name=\"" + PN_TO_CITY + "\">");
+                "\t\t<form action=\"\" method=\"post\">\n" +
+                "\t\t\t<fieldset>\n" +
+                "\t\t\t\t<legend><strong>Calculation Distances</strong></legend>\n" +
+                "\t\t\t\t<p>Calculation Type: <select name=\"" + PN_CALCULATION_TYPE + "\">\n" +
+                "\t\t\t\t\t<option value=\"" + PV_CROWFLIGHT + "\" selected=\"selected\">" + PV_CROWFLIGHT + "</option>\n" +
+                "\t\t\t\t\t<option value=\"" + PV_DISTANCE_MATRIX + "\">" + PV_DISTANCE_MATRIX + "</option>\n" +
+                "\t\t\t\t\t<option value=\"" + PV_ALL + "\">" + PV_ALL + "</option>\n" +
+                "\t\t\t\t</select></p>\n" +
+                "\t\t\t\t\n" +
+                "\t\t\t\t<p>" + PN_FROM_CITY + ": <input list=\"" + PN_FROM_CITY + "\" name=\"" + PN_FROM_CITY + "\" required=\"required\"/>\n" +
+                "\t\t\t\t<datalist id=\"" + PN_FROM_CITY + "\"/>\n");
 
-        for (String city : cities) {
-            sb.append("\t\t\t\t<option value=\"" + city + "\">" + city + "</option>");
+        for (Map.Entry<Integer,String> city : cities.entrySet()) {
+            sb.append("\t\t\t\t\t<option value=\"").append(city.getValue()).append("\">").append(city.getValue()).append("</option>\n");
         }
 
-        sb.append("\t\t\t</select></p>\n" +
-                "\t\t\t<p><input type=\"submit\" value=\"Calculate\"></p>\n" +
+        sb.append("\t\t\t\t</datalist></p>\n" +
+                "\t\t\t\t\n" +
+                "\t\t\t\t<p>" + PN_TO_CITY + ": <input list=\"" + PN_TO_CITY + "\" name=\"" + PN_TO_CITY + "\" required=\"required\"/>\n" +
+                "\t\t\t\t<datalist id=\"" + PN_TO_CITY + "\"/>\n");
+
+        for (Map.Entry<Integer,String> city : cities.entrySet()) {
+            sb.append("\t\t\t\t\t<option value=\"").append(city.getValue()).append("\">").append(city.getValue()).append("</option>\n");
+        }
+
+        sb.append("\t\t\t\t</datalist></p>\n" +
+                "\t\t\t\t<p><input type=\"submit\" value=\"Calculate\"></p>\n" +
+                "\t\t\t</fieldset>\n" +
                 "\t\t</form>\n" +
                 "\t\t\n" +
                 "\t\t<form action=\"\" method=\"post\" enctype=\"multipart/form-data\">\n" +
-                "\t\t\t<p><strong>Upload Data</strong></p>\n" +
-                "\t\t\t<p><input type=\"file\" name=\"file\">\n" +
-                "\t\t\t<p><button type=\"submit\">Upload</button>\n" +
+                "\t\t\t<fieldset>\n" +
+                "\t\t\t\t<legend><strong>Upload Data</strong></legend>\n" +
+                "\t\t\t\t<p><input type=\"file\" name=\"file\" required=\"required\">\n" +
+                "\t\t\t\t<p><button type=\"submit\">Upload</button>\n" +
+                "\t\t\t</fieldset>\n" +
                 "\t\t</form>\n" +
                 "\t</body>\n" +
                 "</html>");
@@ -333,14 +353,14 @@ public class MainActivity extends HttpServlet
         return sb.toString();
     }
 
-    private ArrayList<String> selectCities() throws SQLException {
-        ArrayList<String> list = new ArrayList<>();
+    private HashMap<Integer,String> selectCities() throws SQLException {
+        HashMap<Integer,String> map = new HashMap<>();
 
-        ResultSet rs = conn.createStatement().executeQuery("select " + TAG_NAME + " from " + TAG_CITY);
+        ResultSet rs = conn.createStatement().executeQuery("select id, " + TAG_NAME + " from " + TAG_CITY);
         while (rs.next()) {
-            list.add(rs.getString(TAG_NAME));
+            map.put(rs.getInt("id"), rs.getString(TAG_NAME));
         }
 
-        return list;
+        return map;
     }
 }
