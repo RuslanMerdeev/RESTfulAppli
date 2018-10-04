@@ -1,7 +1,10 @@
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
 import javax.naming.InitialContext;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
@@ -13,6 +16,8 @@ import javax.servlet.http.Part;
 import javax.sql.DataSource;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
 import java.io.File;
 import java.io.IOException;
 import java.sql.*;
@@ -22,9 +27,9 @@ import java.util.*;
  * Created by merdeev on 14/9/17.
  */
 @WebServlet( name = "RESTfulAppli", urlPatterns = {"/", "/upload"} )
-@MultipartConfig(fileSizeThreshold = 1024*1024+6, // 6 MB
-        maxFileSize = 1024*1024*10, // 10 MB
-        maxRequestSize = 1024*1024*20 // 20 MB
+@MultipartConfig(fileSizeThreshold = 1024*1024+60, // 60 MB
+        maxFileSize = 1024*1024*120, // 120 MB
+        maxRequestSize = 1024*1024*200 // 200 MB
 )
 public class MainActivity extends HttpServlet
 {
@@ -45,6 +50,7 @@ public class MainActivity extends HttpServlet
     private static final String TAG_FROM_CITY = "from_city";
     private static final String TAG_TO_CITY = "to_city";
     private static final String TAG_VALUE = "value";
+    private static final String TAG_ITEM = "item";
 
     @Override
     protected void doGet( HttpServletRequest req, HttpServletResponse resp ) throws IOException
@@ -193,100 +199,133 @@ public class MainActivity extends HttpServlet
                 }
                 part.write(uploadFilePath);
 
-                parseFile(uploadFile);
+                parseFile(uploadFile, resp);
             }
         }
 
         resp.setStatus(HttpServletResponse.SC_OK);
     }
 
-    private void parseFile (File file) throws IOException, ParserConfigurationException, SAXException, SQLException {
-        Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file);
-        Node root = document.getDocumentElement();
+    private void parseFile (File file, HttpServletResponse resp) throws IOException, ParserConfigurationException, SAXException, SQLException {
+        StringBuilder cities_sb = new StringBuilder();
+        StringBuilder distances_sb = new StringBuilder();
 
-        NodeList tables = root.getChildNodes();
-        for (int i = 0; i < tables.getLength(); i++) {
-            Node table = tables.item(i);
-            String table_name = table.getNodeName();
-            // If node is not a text
-            if (table.getNodeType() != Node.TEXT_NODE) {
-                NodeList attributes = table.getChildNodes();
-                if (table_name.equals(TAG_CITY)) {
-                    String name = null;
-                    String latitude = null;
-                    String longitude = null;
-                    for (int j = 0; j < attributes.getLength(); j++) {
-                        Node attribute = attributes.item(j);
-                        String attribute_name = attribute.getNodeName();
-                        // If node is not a text
-                        if (attribute.getNodeType() != Node.TEXT_NODE) {
-                            switch (attribute_name) {
-                                case TAG_NAME:
-                                    name = attribute.getChildNodes().item(0).getTextContent();
-                                    break;
-                                case TAG_LATITUDE:
-                                    latitude = attribute.getChildNodes().item(0).getTextContent();
-                                    break;
-                                case TAG_LONGITUDE:
-                                    longitude = attribute.getChildNodes().item(0).getTextContent();
-                                    break;
-                            }
-                        }
-                    }
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        SAXParser saxParser = factory.newSAXParser();
 
-                    if (name != null && latitude != null && longitude != null) {
-                        insertCity(name, latitude, longitude);
-                    }
+        DefaultHandler handler = new DefaultHandler() {
+
+            boolean city = false;
+            boolean distance = false;
+            String first = null;
+            String second = null;
+            String third = null;
+
+            public void startElement(String uri, String localName,String qName,
+                                     Attributes attributes) throws SAXException {
+
+                if (qName.equals(TAG_CITY)) {
+                    city = true;
+                    distance = false;
+                    first = null;
+                    second = null;
+                    third = null;
                 }
-                else if (table_name.equals(TAG_DISTANCE)) {
-                    String from_city = null;
-                    String to_city = null;
-                    String value = null;
-                    for (int j = 0; j < attributes.getLength(); j++) {
-                        Node attribute = attributes.item(j);
-                        String attribute_name = attribute.getNodeName();
-                        // If node is not a text
-                        if (attribute.getNodeType() != Node.TEXT_NODE) {
-                            switch (attribute_name) {
-                                case TAG_FROM_CITY:
-                                    from_city = attribute.getChildNodes().item(0).getTextContent();
-                                    break;
-                                case TAG_TO_CITY:
-                                    to_city = attribute.getChildNodes().item(0).getTextContent();
-                                    break;
-                                case TAG_VALUE:
-                                    value = attribute.getChildNodes().item(0).getTextContent();
-                                    break;
-                            }
-                        }
-                    }
 
-                    if (from_city != null && to_city != null && value != null) {
-                        insertDistance(from_city, to_city, value);
+                if (qName.equals(TAG_DISTANCE)) {
+                    distance = true;
+                    city = false;
+                    first = null;
+                    second = null;
+                    third = null;
+                }
+
+                if (qName.equals(TAG_NAME) && city && first == null) {
+                    first = "";
+                }
+
+                if (qName.equals(TAG_LATITUDE) && city && second == null) {
+                    second = "";
+                }
+
+                if (qName.equals(TAG_LONGITUDE) && city && third == null) {
+                    third = "";
+                }
+
+                if (qName.equals(TAG_FROM_CITY) && distance && first == null) {
+                    first = "";
+                }
+
+                if (qName.equals(TAG_TO_CITY) && distance && second == null) {
+                    second = "";
+                }
+
+                if (qName.equals(TAG_VALUE) && distance && third == null) {
+                    third = "";
+                }
+            }
+
+            public void endElement(String uri, String localName,
+                                   String qName) throws SAXException {
+
+                if (qName.equals(TAG_CITY)) {
+                    city = false;
+                    if (first != null && second != null && third != null)
+                        cities_sb.append(" ('").append(first).append("', ").append(second).append(", ").append(third).append("),");
+                }
+
+                if (qName.equals(TAG_DISTANCE)) {
+                    distance = false;
+                    if (first != null && second != null && third != null)
+                        distances_sb.append(" ('").append(first).append("', '").append(second).append("', ").append(third).append("),");
+                }
+            }
+
+            public void characters(char ch[], int start, int length) throws SAXException {
+
+                if (city || distance) {
+                    if (first != null && first.equals("")) {
+                        first = new String(ch, start, length);
+                    }
+                    if (second != null && second.equals("")) {
+                        second = new String(ch, start, length);
+                    }
+                    if (third != null && third.equals("")) {
+                        third = new String(ch, start, length);
                     }
                 }
             }
+        };
+
+        saxParser.parse(file, handler);
+//        resp.getWriter().write(distances_sb.toString());
+
+
+
+        if (cities_sb.length() > 0) {
+            cities_sb.deleteCharAt(cities_sb.length()-1);
+            insertCities(cities_sb.toString());
+        }
+
+        if (distances_sb.length() > 0) {
+            distances_sb.deleteCharAt(distances_sb.length()-1);
+            insertDistances(distances_sb.toString());
         }
     }
 
-    private void insertCity (String name, String latitude, String longitude) throws SQLException {
-        ResultSet rs = conn.createStatement().executeQuery("select " + TAG_NAME + " from " + TAG_CITY + " where " + TAG_NAME + " = '" + name + "'");
-        if (rs.next()) {
-            conn.createStatement().execute("delete from " + TAG_CITY + " where " + TAG_NAME + " = '" + name + "'");
-        }
-        conn.createStatement().execute( "insert into " + TAG_CITY + " (" + TAG_NAME + ", " + TAG_LATITUDE + ", " + TAG_LONGITUDE + ") values ('" + name + "', " + latitude + ", " + longitude + ")");
+    private void insertCities (String values) throws SQLException {
+        conn.createStatement().execute( "insert into " + TAG_CITY + " (" + TAG_NAME + ", " + TAG_LATITUDE + ", " + TAG_LONGITUDE + ") values" + values);
     }
 
-    private void insertDistance (String from_city, String to_city, String value) throws SQLException {
-        ResultSet rs = conn.createStatement().executeQuery("select " + TAG_FROM_CITY + ", " + TAG_TO_CITY + " from " + TAG_DISTANCE + " where (" + TAG_FROM_CITY + " = '" + from_city + "' and " + TAG_TO_CITY + " = '" + to_city + "') or (" + TAG_FROM_CITY + " = '" + to_city + "' and " + TAG_TO_CITY + " = '" + from_city + "')");
-        if (rs.next()) {
-            conn.createStatement().execute("delete from " + TAG_DISTANCE + " where (" + TAG_FROM_CITY + " = '" + from_city + "' && " + TAG_TO_CITY + " = '" + to_city + "') || (" + TAG_FROM_CITY + " = '" + to_city + "' && " + TAG_TO_CITY + " = '" + from_city + "')");
-        }
-        conn.createStatement().execute( "insert into " + TAG_DISTANCE + " (" + TAG_FROM_CITY + ", " + TAG_TO_CITY + ", " + TAG_VALUE + ") values ('" + from_city + "', '" + to_city + "', " + value + ")");
+    private void insertDistances (String values) throws SQLException {
+        conn.createStatement().execute( "insert into " + TAG_DISTANCE + " (" + TAG_FROM_CITY + ", " + TAG_TO_CITY + ", " + TAG_VALUE + ") values" + values);
     }
 
     private String makeHtml() throws SQLException {
         StringBuilder sb = new StringBuilder();
+
+        createCity();
+        createDistance();
 
         HashMap<Integer,String> cities = selectCities();
 
@@ -351,6 +390,32 @@ public class MainActivity extends HttpServlet
                 "</html>");
 
         return sb.toString();
+    }
+
+    private void createCity () {
+        try {
+            conn.createStatement().execute( "create table " + TAG_CITY + " (\n" +
+                    "id int not null auto_increment primary key,\n" +
+                    TAG_NAME + " varchar(50) not null,\n" +
+                    TAG_LATITUDE + " float(8,4) not null,\n" +
+                    TAG_LONGITUDE + " float(9,4) not null\n" +
+                    ");");
+        }
+        catch (SQLException ignored) {
+        }
+    }
+
+    private void createDistance () {
+        try {
+            conn.createStatement().execute( "create table " + TAG_DISTANCE + " (\n" +
+                    "id int not null auto_increment primary key,\n" +
+                    TAG_FROM_CITY + " varchar(50) not null,\n" +
+                    TAG_TO_CITY + " varchar(50) not null,\n" +
+                    TAG_VALUE + " float(7,1) not null\n" +
+                    ");");
+        }
+        catch (SQLException ignored) {
+        }
     }
 
     private HashMap<Integer,String> selectCities() throws SQLException {
