@@ -1,0 +1,19 @@
+MySQL server:
+1. Download installer: https://dev.mysql.com/get/Downloads/MySQLInstaller/mysql-installer-community-8.0.12.0.msi
+2. Start installer and continued with default parameters except: Installation Folder: "C:\Server", Config Type: "Server Computer", login: "root", password: "root"
+3. Change parameter value to max_allowed_packet=32M in <wildfly_root>\my.ini
+4. Create DB: start MySQL 8.0 Command Line Client -> type login/password (root/root) -> "create database distance_calculator;"
+
+WildFly:
+1. Download driver mysql-connector-java-8.0.12.jar: https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.12.zip
+2. Download and place in C:\Server repository: http://download.jboss.org/wildfly/10.1.0.Final/wildfly-10.1.0.Final.zip
+3. Add manager user: <wildfly_root>\bin\add_user.bat
+4. Start server: <wildfly_root>\bin\standalone.bat
+5. Go to: 127.0.0.1:8080 -> Administration Console -> type login/password of manager user
+6. Deploy driver mysql-connector-java on server: Deployments -> Add -> Upload a new deployment -> choose file -> Finish
+7. Add datasource on server: Configuration -> Datasources -> Non-XA -> Add -> MySQL Datasource -> Name: "distance-calculator", JNDI Name: "java:/magenta/datasource/test-distance-calculator" -> Next -> Detected Driver -> choose deployed driver -> Next -> Connection URL: "jdbc:mysql://localhost:3306/distance_calculator?useSSL=false&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC", Username: "root", Password: "root" -> Next -> Finish -> Test Connection
+8. Deploy application on server: place .war-file in <wildfly_root>\standalone\deployments\
+
+Liquibase:
+1. Download and place in <RESTfulAppli_root>\liquibase repository: https://github.com/liquibase/liquibase/releases/download/liquibase-parent-3.6.2/liquibase-3.6.2-bin.zip
+2. Create folder <RESTfulAppli_root>\liquibase\db and create changelog
